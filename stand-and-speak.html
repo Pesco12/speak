@@ -160,12 +160,19 @@
   .lmeta{color:var(--faint);font-size:12px}
   .lnums{color:var(--muted)}
   .lnote{color:var(--paper);font-family:Newsreader,Georgia,serif;font-size:15px;margin-top:3px}
-  .pactions{margin-top:18px}
+  .pactions{margin-top:18px;display:flex;flex-wrap:wrap;gap:10px}
+  .bkrow{padding:14px 0;border-bottom:1px solid var(--rule)}
+  .bkrow:last-child{border-bottom:none}
+  .bkrow b{display:block;font-size:14px;font-weight:500;margin-bottom:4px}
+  .bkrow p{font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:11px;max-width:48ch}
+  .bkstatus{font-size:13px;margin-top:12px;color:var(--ochre);min-height:18px}
+  .warn{font-size:12px;color:var(--faint);line-height:1.55;margin-top:16px;max-width:48ch}
   .slist{display:flex;flex-direction:column}
   .sitem{padding:11px 0;border-bottom:1px solid var(--rule)}
   .sitem b{display:block;font-size:15px;font-weight:500;margin-bottom:3px}
   .sitem span{font-size:13px;color:var(--muted);line-height:1.5}
 
+  .nudge{color:var(--ochre)}
   .hidden{display:none !important}
 
   .enter{animation:rise .5s cubic-bezier(.2,.7,.3,1) both}
@@ -242,6 +249,7 @@
     </span>
     <span class="spacer"></span>
     <span id="remaining"></span>
+    <span id="nudge" class="nudge"></span>
   </div>
 </div>
 
@@ -557,7 +565,7 @@ const el = {
   clockwrap:$("clockwrap"), clock:$("clock"), clocklabel:$("clocklabel"),
   shape:$("shape"), logcard:$("logcard"), hint:$("hint"), controls:$("controls"),
   tide:$("tide"), tally:$("tally"), remaining:$("remaining"),
-  fcat:$("fcat"), flen:$("flen"), fprep:$("fprep"), foot:$("foot"),
+  fcat:$("fcat"), flen:$("flen"), fprep:$("fprep"), foot:$("foot"), nudge:$("nudge"),
   panel:$("panel"), paneltitle:$("paneltitle"), panelbody:$("panelbody")
 };
 
@@ -631,6 +639,8 @@ function renderTally(){
     : "No reps yet";
   const p = pool(), unseen = p.filter(i => store.seen.indexOf(i) === -1).length;
   el.remaining.textContent = unseen + " of " + p.length + " unused";
+  const since = store.log.length - (store.backupAt || 0);
+  if(el.nudge) el.nudge.textContent = since >= 15 ? "unbacked up: " + since + " reps" : "";
 }
 
 /* ---------- phases ---------- */
@@ -792,9 +802,11 @@ function logPanel(){
       +  (e.note ? "<span class='lnote'>"+e.note.replace(/</g,"&lt;")+"</span>" : "") + "</div>";
   });
   h += "</div>";
-  h += "<div class='pactions'><button class='ghost' id='exp'>Download log as CSV</button></div>";
+  h += "<div class='pactions'><button class='ghost' id='exp'>Download log as CSV</button>"
+    + "<button class='bare' id='bkjump'>Backup and restore</button></div>";
   openPanel("Your log", h);
   $("exp").onclick = exportCsv;
+  $("bkjump").onclick = backupPanel;
 }
 
 function exportCsv(){
@@ -815,6 +827,86 @@ function structuresPanel(){
   openPanel("The fourteen shapes", h);
 }
 
+
+/* ---------- backup and restore ---------- */
+function stamp(){ return new Date().toISOString().slice(0,10); }
+
+function backupFile(){
+  const payload = {app:"stand-and-speak", v:1, exported:new Date().toISOString(), data:store};
+  const blob = new Blob([JSON.stringify(payload)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "stand-and-speak-backup-" + stamp() + ".json";
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+  store.lastBackup = stamp(); store.backupAt = store.log.length; save(); renderTally();
+}
+
+function mergeIn(incoming, mode){
+  if(mode === "replace"){
+    store = Object.assign({seen:[], reps:0, days:[], sound:true, guide:true, log:[]}, incoming);
+    save(); return store.log.length + " reps restored, replacing what was here.";
+  }
+  const before = store.log.length;
+  const key = e => e.d + "|" + e.c + "|" + e.f + "|" + e.ttp + "|" + e.re + "|" + e.end + "|" + (e.note||"");
+  const have = {}; store.log.forEach(e => have[key(e)] = 1);
+  (incoming.log||[]).forEach(e => { if(!have[key(e)]){ store.log.push(e); have[key(e)] = 1; } });
+  store.log.sort((a,b)=> a.d < b.d ? -1 : a.d > b.d ? 1 : 0);
+  (incoming.days||[]).forEach(d => { if(store.days.indexOf(d) === -1) store.days.push(d); });
+  (incoming.seen||[]).forEach(i => { if(store.seen.indexOf(i) === -1) store.seen.push(i); });
+  store.reps = Math.max(store.reps||0, incoming.reps||0, store.log.length);
+  save();
+  return (store.log.length - before) + " new reps merged in, " + store.log.length + " total.";
+}
+
+function readBackup(file, mode, done){
+  const r = new FileReader();
+  r.onload = () => {
+    let p;
+    try{ p = JSON.parse(r.result); }
+    catch(e){ return done("That file is not readable. Pick the .json backup, not the CSV."); }
+    const incoming = p && p.data ? p.data : p;
+    if(!incoming || !Array.isArray(incoming.log))
+      return done("That does not look like a Stand and Speak backup.");
+    done(mergeIn(incoming, mode));
+  };
+  r.onerror = () => done("Could not read that file.");
+  r.readAsText(file);
+}
+
+function backupPanel(){
+  const n = store.log.length, last = store.lastBackup;
+  let h = "<div class='bkrow'><b>Download a backup</b>"
+    + "<p>Everything: " + n + " logged rep" + (n===1?"":"s") + ", your streak, and which scenarios you have used. "
+    + (last ? "Last backup " + last + "." : "You have not backed up yet.")
+    + " Keep it in Drive and redo it once a month.</p>"
+    + "<button class='primary' id='bkdl'>Download backup</button></div>";
+  h += "<div class='bkrow'><b>Restore from a backup</b>"
+    + "<p>Merge keeps what is here and adds anything missing, which is what you want when moving between your phone and laptop. Replace wipes this device first.</p>"
+    + "<div class='pactions'><button class='ghost' id='bkmerge'>Merge a backup in</button>"
+    + "<button class='bare' id='bkreplace'>Replace everything</button></div></div>";
+  h += "<div class='bkstatus' id='bkstatus'></div>";
+  h += "<p class='warn'>Browser storage is per site and per device. It survives restarts, but not clearing your browsing data, and on an iPhone Safari can evict it if you go a week without opening the page. Adding this to your Home Screen makes that much less likely. The backup file is what actually makes you safe.</p>";
+  openPanel("Backup", h);
+
+  $("bkdl").onclick = () => { backupFile(); $("bkstatus").textContent = "Saved to your downloads."; };
+  const pick = mode => {
+    const inp = document.createElement("input");
+    inp.type = "file"; inp.accept = "application/json,.json";
+    inp.onchange = () => {
+      if(!inp.files[0]) return;
+      if(mode === "replace" && !confirm("Replace everything on this device with that file?")) return;
+      readBackup(inp.files[0], mode, msg => {
+        $("bkstatus").textContent = msg;
+        renderTally();
+      });
+    };
+    inp.click();
+  };
+  $("bkmerge").onclick = () => pick("merge");
+  $("bkreplace").onclick = () => pick("replace");
+}
+
 /* ---------- footer wiring ---------- */
 (function init(){
   const all = document.createElement("option");
@@ -833,6 +925,7 @@ function structuresPanel(){
   };
   link("Your log", logPanel);
   link("Shapes", structuresPanel);
+  link("Backup", backupPanel);
   const g = link("", () => {
     store.guide = !store.guide; save(); paintG();
     if(current !== null && phase !== "live") paintShape();
@@ -844,7 +937,7 @@ function structuresPanel(){
   paintS();
   link("Reset", () => {
     if(confirm("Clear everything, including your log?")){
-      store = {seen:[], reps:0, days:[], sound:store.sound, guide:store.guide, log:[]};
+      store = {seen:[], reps:0, days:[], sound:store.sound, guide:store.guide, log:[], backupAt:0};
       save(); renderTally(); closePanel();
     }
   });
