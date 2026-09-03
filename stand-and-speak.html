@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stand and Speak</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1B2A2E">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ground:#1B2A2E;
+    --deep:#152225;
+    --paper:#EFEDE6;
+    --muted:#8FA5A7;
+    --faint:#5C7476;
+    --ochre:#D9A441;
+    --alarm:#DB4B3F;
+    --rule:rgba(143,165,167,.22);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--ground);
+    color:var(--paper);
+    font-family:Archivo,"Helvetica Neue",Helvetica,Arial,sans-serif;
+    font-size:16px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    overflow:hidden;
+  }
+  #tide{
+    position:fixed;left:0;right:0;bottom:0;height:0;
+    background:linear-gradient(to top,rgba(217,164,65,.16),rgba(217,164,65,.04));
+    transition:height 1s linear, background .6s ease;
+    pointer-events:none;z-index:0;
+  }
+  body.alarm #tide{background:linear-gradient(to top,rgba(219,75,63,.24),rgba(219,75,63,.05))}
+
+  .shell{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;
+    padding:clamp(18px,3.5vw,40px);max-width:1100px;margin:0 auto}
+
+  /* ---- top row ---- */
+  .top{display:flex;justify-content:space-between;align-items:baseline;gap:16px;
+    font-size:13px;color:var(--faint);letter-spacing:.01em;flex:0 0 auto}
+  .top b{font-weight:500;color:var(--muted)}
+  .wordmark{font-family:Newsreader,Georgia,serif;font-size:17px;font-weight:400;
+    color:var(--muted);letter-spacing:.01em}
+
+  /* ---- stage ---- */
+  .stage{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;
+    padding:clamp(16px,4vh,48px) 0;min-height:0}
+
+  #card{max-width:830px}
+  .meta{display:flex;justify-content:space-between;align-items:baseline;gap:20px;
+    font-size:13px;color:var(--muted);margin-bottom:clamp(14px,2.4vh,26px);
+    border-bottom:1px solid var(--rule);padding-bottom:10px}
+  .meta .len{color:var(--faint);white-space:nowrap}
+
+  .scenario{
+    font-family:Newsreader,Georgia,"Times New Roman",serif;
+    font-weight:300;
+    font-size:clamp(1.45rem,3.9vw,2.9rem);
+    line-height:1.26;
+    letter-spacing:-.005em;
+    max-width:17em;
+    text-wrap:pretty;
+  }
+  .scenario em{font-style:italic;color:var(--ochre)}
+
+  .intro{max-width:34rem}
+  .intro h1{max-width:15em;font-family:Newsreader,Georgia,serif;font-weight:300;
+    font-size:clamp(2rem,6vw,3.6rem);line-height:1.12;margin-bottom:18px;letter-spacing:-.01em}
+  .intro p{color:var(--muted);font-size:15px;max-width:30rem;margin-bottom:12px}
+
+  /* ---- clock ---- */
+  .clock{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;
+    font-weight:500;letter-spacing:-.03em;line-height:1;
+    font-size:clamp(2.6rem,10vw,6.2rem);margin-top:clamp(18px,3.4vh,40px);
+    color:var(--paper)}
+  .clock.prep{color:var(--muted);font-size:clamp(1.6rem,5vw,3rem)}
+  body.alarm .clock{color:var(--alarm)}
+  .clocklabel{font-size:13px;color:var(--faint);margin-top:6px}
+
+  /* ---- hint ---- */
+  .hint{margin-top:clamp(16px,3vh,32px);max-width:34rem;
+    border-left:2px solid var(--ochre);padding:2px 0 2px 16px;
+    font-size:15px;color:var(--muted);line-height:1.55}
+  .hint b{color:var(--paper);font-weight:500}
+
+  /* ---- controls ---- */
+  .controls{flex:0 0 auto;display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+    padding-top:clamp(14px,2.4vh,24px)}
+  button{font:inherit;font-size:14px;font-weight:500;cursor:pointer;
+    border-radius:3px;padding:11px 18px;border:1px solid transparent;
+    transition:background .15s ease,border-color .15s ease,color .15s ease}
+  .primary{background:var(--ochre);color:#1B2A2E;border-color:var(--ochre)}
+  .primary:hover{background:#E7B75C;border-color:#E7B75C}
+  .ghost{background:transparent;color:var(--muted);border-color:var(--rule)}
+  .ghost:hover{color:var(--paper);border-color:var(--muted)}
+  .bare{background:none;border:none;color:var(--faint);padding:11px 4px;font-weight:400}
+  .bare:hover{color:var(--paper)}
+  button:focus-visible,select:focus-visible{outline:2px solid var(--ochre);outline-offset:2px}
+
+  /* ---- footer / settings ---- */
+  .foot{flex:0 0 auto;display:flex;flex-wrap:wrap;gap:18px 22px;align-items:center;
+    border-top:1px solid var(--rule);margin-top:clamp(14px,2.4vh,24px);
+    padding-top:14px;font-size:13px;color:var(--faint)}
+  .field{display:flex;align-items:center;gap:8px}
+  select{font:inherit;font-size:13px;background:var(--deep);color:var(--muted);
+    border:1px solid var(--rule);border-radius:3px;padding:6px 8px;cursor:pointer}
+  .foot .spacer{flex:1 1 auto}
+  .foot a{color:var(--faint);cursor:pointer;text-decoration:underline;
+    text-underline-offset:3px;text-decoration-color:var(--rule)}
+  .foot a:hover{color:var(--paper)}
+
+
+  /* structure badge */
+  .shape{margin-top:clamp(14px,2.4vh,26px);font-size:13px;color:var(--ochre)}
+  .shape span{color:var(--faint);margin-right:6px}
+
+  /* logging card */
+  .logcard{margin-top:clamp(16px,3vh,30px);max-width:38rem;
+    border-top:1px solid var(--rule);padding-top:16px}
+  .logrow{margin-bottom:14px}
+  .loglabel{font-size:13px;color:var(--faint);margin-bottom:7px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{font-size:13px;font-weight:400;padding:7px 12px;border-radius:3px;
+    background:transparent;border:1px solid var(--rule);color:var(--muted)}
+  .chip:hover{border-color:var(--muted);color:var(--paper)}
+  .chip.on{background:var(--ochre);border-color:var(--ochre);color:#1B2A2E;font-weight:500}
+  .note{width:100%;max-width:34rem;font:inherit;font-size:14px;margin-top:4px;
+    background:var(--deep);border:1px solid var(--rule);border-radius:3px;
+    color:var(--paper);padding:10px 12px}
+  .note::placeholder{color:var(--faint)}
+  .note:focus{outline:none;border-color:var(--muted)}
+
+  /* panel */
+  .panel{position:fixed;inset:0;z-index:5;background:rgba(12,20,22,.7);
+    display:flex;justify-content:center;align-items:flex-start;padding:4vh 16px;overflow:auto}
+  .panelinner{background:var(--deep);border:1px solid var(--rule);border-radius:4px;
+    width:100%;max-width:640px;padding:22px 24px 26px}
+  .panelhead{display:flex;justify-content:space-between;align-items:baseline;
+    margin-bottom:18px;padding-bottom:12px;border-bottom:1px solid var(--rule)}
+  .panelhead span{font-family:Newsreader,Georgia,serif;font-size:22px;font-weight:300}
+  .pnote{font-size:13px;color:var(--faint);line-height:1.6;margin:14px 0;max-width:44ch}
+  .stats{display:flex;flex-wrap:wrap;gap:22px 34px}
+  .stats div{display:flex;flex-direction:column;gap:2px}
+  .stats span{font-size:12px;color:var(--faint)}
+  .stats b{font-size:30px;font-weight:500;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .stats i{font-size:12px;font-style:normal;color:var(--faint)}
+  .stats i.up{color:#7FB98B} .stats i.down{color:var(--alarm)}
+  .loglist{max-height:38vh;overflow:auto;margin-top:6px}
+  .logitem{display:flex;flex-direction:column;gap:2px;padding:11px 0;
+    border-bottom:1px solid var(--rule);font-size:13px}
+  .lmeta{color:var(--faint);font-size:12px}
+  .lnums{color:var(--muted)}
+  .lnote{color:var(--paper);font-family:Newsreader,Georgia,serif;font-size:15px;margin-top:3px}
+  .pactions{margin-top:18px}
+  .slist{display:flex;flex-direction:column}
+  .sitem{padding:11px 0;border-bottom:1px solid var(--rule)}
+  .sitem b{display:block;font-size:15px;font-weight:500;margin-bottom:3px}
+  .sitem span{font-size:13px;color:var(--muted);line-height:1.5}
+
+  .hidden{display:none !important}
+
+  .enter{animation:rise .5s cubic-bezier(.2,.7,.3,1) both}
+  @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){
+    .enter{animation:none}
+    #tide{transition:none}
+  }
+  @media (max-width:640px){
+    body{overflow:auto}
+    .shell{min-height:100%}
+    .scenario{max-width:none}
+  }
+</style>
+</head>
+<body>
+<div id="tide"></div>
+<div class="shell">
+
+  <div class="top">
+    <span class="wordmark">Stand and speak</span>
+    <span id="tally"></span>
+  </div>
+
+  <div class="stage">
+    <div id="intro" class="intro enter">
+      <h1>Say something worth listening to, starting now.</h1>
+      <p>Draw a situation, take your prep time, then stand up and talk until the clock runs out. Speak out loud. Speak standing. Both matter.</p>
+      <p>Every scenario has a hidden hint with a structure to hang it on — look at it after you speak, not before.</p>
+    </div>
+
+    <div id="card" class="hidden">
+      <div class="meta">
+        <span id="cat"></span>
+        <span class="len" id="len"></span>
+      </div>
+      <p class="scenario" id="text"></p>
+      <div id="clockwrap" class="hidden">
+        <div class="clock" id="clock">0:00</div>
+        <div class="clocklabel" id="clocklabel"></div>
+      </div>
+      <div id="shape" class="shape hidden"></div>
+      <div id="hint" class="hint hidden"></div>
+      <div id="logcard" class="logcard hidden"></div>
+    </div>
+  </div>
+
+  <div class="controls" id="controls"></div>
+
+  <div class="foot" id="foot">
+    <span class="field">
+      <label for="fcat">Topics</label>
+      <select id="fcat"></select>
+    </span>
+    <span class="field">
+      <label for="flen">Length</label>
+      <select id="flen">
+        <option value="auto">As suggested</option>
+        <option value="45">45 seconds</option>
+        <option value="60">1 minute</option>
+        <option value="120">2 minutes</option>
+        <option value="180">3 minutes</option>
+        <option value="300">5 minutes</option>
+      </select>
+    </span>
+    <span class="field">
+      <label for="fprep">Prep</label>
+      <select id="fprep">
+        <option value="0">None, cold</option>
+        <option value="15">15 seconds</option>
+        <option value="30" selected>30 seconds</option>
+        <option value="60">60 seconds</option>
+      </select>
+    </span>
+    <span class="spacer"></span>
+    <span id="remaining"></span>
+  </div>
+</div>
+
+<div id="panel" class="panel hidden">
+  <div class="panelinner">
+    <div class="panelhead"><span id="paneltitle"></span><button class="bare" id="panelclose">Close</button></div>
+    <div id="panelbody"></div>
+  </div>
+</div>
+
+<script>
+const CATS = {
+  work:"Clients and money",
+  team:"Team and workplace",
+  academic:"Academic and technical",
+  social:"Toasts and occasions",
+  hard:"Difficult conversations",
+  civic:"Advocacy and public",
+  explain:"Explain it simply",
+  story:"Personal story",
+  spotlight:"Spotlight and media",
+  ambush:"Cold open",
+  abstract:"Abstract prompts",
+  side:"Take a side"
+};
+
+const SCENARIOS = [
+{c:"work",t:90,s:"A client you have worked with for eight months tells you they are moving to someone cheaper. You have ninety seconds before they get on their next call.",h:"Try SCQA. Do not defend your price. Name the thing the cheaper option cannot do, once, and let it sit.",f:"SCQA"},
+{c:"work",t:120,s:"Someone you met four minutes ago asks what you actually do. They run a business that could use you and they are about to be pulled away.",h:"Problem, agitate, solve, compressed. Lead with the problem you solve for people like them, not your job title.",f:"PAS"},
+{c:"work",t:60,s:"A prospect says your quote is more than double what they expected. They are not angry. They are genuinely confused.",h:"PREP. The reason has to be about their risk, not your effort. Nobody pays for your hours.",f:"PREP"},
+{c:"work",t:120,s:"You need to tell a client that the thing they insisted on is the reason the project is failing. They are in the room. So is their boss.",h:"Pyramid, conclusion first, and use we throughout. Give them a way to change course without it being a retreat.",f:"PYRAMID"},
+{c:"work",t:90,s:"A long-standing client asks for a discount because money is tight. You do not want to lose them and you do not want to set the precedent.",h:"Do not answer with yes or no. Reframe to scope: same price, less work, or a different payment shape. Say the number out loud without apologising.",f:"SCQA"},
+{c:"work",t:120,s:"You are pitching to someone who has been burned by three people in your line of work already. They open by telling you that.",h:"Do not distance yourself from the others. Name exactly what went wrong in those projects before they do, then show what you do differently.",f:"SCQA"},
+{c:"work",t:60,s:"A client asks why the project is late. It is late partly because of you and partly because of them.",h:"Own your part first and specifically. Vague ownership reads as evasion. Then the fix, then the new date.",f:"SCQA"},
+{c:"work",t:150,s:"You have thirty percent more capacity than work. Explain to a room of potential referral partners what kind of client you are looking for.",h:"Be narrower than feels comfortable. A specific description is memorable and gets referred, a broad one gets forgotten.",f:"SCQA"},
+{c:"work",t:90,s:"A client wants to add one more thing. It is the fifth one more thing. You are going to have to say the word contract.",h:"Warm, factual, no resentment. Describe the pattern rather than the incident, then offer two doors: swap it in, or price it.",f:"SCQA"},
+{c:"work",t:120,s:"You are asking for a rate increase from someone who has paid you the same amount for two years.",h:"Anchor on the value shift, not inflation. State the new number, then stop talking. The silence is the tool.",f:"SCQA"},
+{c:"work",t:90,s:"A client hated the work. You look at it and you think it is the best thing you have made this year.",h:"Separate the taste question from the goal question. Ask what it needs to do before you defend what it is.",f:"SCQA"},
+{c:"work",t:120,s:"Explain to a client who has never hired anyone in your field what they should expect from the first two weeks.",h:"Chronological, but uneven. Spend the time on the moment where they have to make a decision, compress the rest.",f:"CHRONO"},
+{c:"work",t:60,s:"You have to turn down work you would love to do because the timeline is impossible.",h:"Decline cleanly in the first sentence. Then offer the version that would work, or a name. Never a maybe.",f:"SCQA"},
+{c:"work",t:150,s:"A referral partner sends you clients who are consistently wrong for you. You want to keep the relationship and change the pattern.",h:"Lead with gratitude that is specific and true, then a sharper description of who to send. Give them a script they can reuse.",f:"SCQA"},
+{c:"work",t:120,s:"You are on a call with a founder who is convinced they need a rebrand. You think they need to fix their sales process.",h:"SCQA. Ask permission to disagree before disagreeing. Then show the number that makes your case, not your opinion.",f:"SCQA"},
+{c:"work",t:90,s:"A former client resurfaces after a year and asks for help with something urgent. They left owing you money.",h:"Say the outstanding thing plainly and early, without a lecture. Then state the terms for going forward as a condition, not a grudge.",f:"SCQA"},
+{c:"work",t:120,s:"Someone asks you to justify why they should hire a person instead of using a tool that does most of it automatically.",h:"Concede the overlap immediately. Then find the part of the job that is judgement rather than production.",f:"SCQA"},
+{c:"work",t:180,s:"You are presenting three directions to a client. You strongly prefer one of them.",h:"Compare and contrast on the same criteria in the same order for each. Recommend at the end, plainly. Neutrality reads as indecision.",f:"CC"},
+{c:"work",t:90,s:"A client asks for something that will work for them and quietly harm their own customers. They do not see it.",h:"Frame it as their risk, not your ethics. Describe what happens six months out, then offer the version you can build.",f:"SCQA"},
+{c:"work",t:120,s:"You are on a discovery call and the client will not stop talking. You have eleven minutes left and no useful information.",h:"Interrupt with a question, not a statement. Name what you still need and why it changes what you would build.",f:"SCQA"},
+{c:"work",t:60,s:"Someone asks whether they can just pay you when the results come in.",h:"Do not moralise. Explain the incentive problem in one line, then offer a structure you would actually accept.",f:"SCQA"},
+{c:"work",t:150,s:"You are introducing your work to a room of people in a completely different industry who have no reason to care.",h:"Open with something from their world, not yours. The bridge sentence is the whole talk.",f:"SCQA"},
+{c:"work",t:120,s:"Your biggest client just went quiet for three weeks. You have them on the phone.",h:"Do not open with an apology or a complaint. Ask one open question, listen, then respond to what is actually there.",f:"SCQA"},
+{c:"work",t:90,s:"A client asks you to explain what they are actually paying for, because from where they sit it looks like you sent one file.",h:"The invisible work is the point. Name three decisions you made that they never saw, and what each one prevented.",f:"SCQA"},
+{c:"work",t:120,s:"You made a mistake that cost the client money. You are calling before they notice.",h:"What happened, what it costs them, what you are doing about it, in that order. No preamble. No explaining why it was understandable.",f:"SCQA"},
+{c:"work",t:180,s:"You are asked to speak for three minutes at a small business event about the one thing that changed how you work.",h:"Situation, turn, consequence. One story, one lesson. Two lessons is none.",f:"SCQA"},
+{c:"work",t:90,s:"A potential client asks who else you have worked with. Your best work is under NDA and your named clients are unimpressive.",h:"Move from names to problems. Describe the shape of the problem and the outcome. Specificity substitutes for prestige.",f:"SCQA"},
+{c:"work",t:120,s:"You want to move from being paid per project to being kept on retainer. You are explaining this to a client who likes things as they are.",h:"Monroe. The visualisation step is where you win it: describe an ordinary Tuesday under the new arrangement.",f:"MONROE"},
+{c:"work",t:60,s:"Someone asks you the difference between what you do and what a much cheaper freelancer does.",h:"Do not attack the cheaper option. Describe what the work costs when it has to be done twice.",f:"SCQA"},
+{c:"work",t:150,s:"You are ending a working relationship with a client who has done nothing wrong except be exhausting.",h:"Give a reason that is true and unarguable. Do not itemise their behaviour. Offer a clean handover, then close warmly.",f:"SCQA"},
+{c:"team",t:90,s:"You have to give the team a status update on something that has gone sideways, and you know two people in the room already blame each other.",h:"What, so what, now what. Describe the situation in system terms, not people terms. Land on one decision.",f:"WSN"},
+{c:"team",t:60,s:"Your manager asks what you have been working on. You have been working on something you were not asked to work on.",h:"Lead with the result, then the reasoning. Do not open with a confession.",f:"PREP"},
+{c:"team",t:120,s:"You disagree with a decision that has already been made, and you have one shot to say so before everyone moves on.",h:"Name the specific condition under which the decision is wrong, not the decision itself. Then say you will commit either way.",f:"PREP"},
+{c:"team",t:90,s:"A colleague keeps taking credit for shared work. They are in the room and so is the person whose opinion matters.",h:"Do not accuse. Narrate the work in the first person plural but with your specific decisions named. Precision does the job.",f:"PREP"},
+{c:"team",t:120,s:"You are handing over a project you have run for a year to someone new. You have their full attention for two minutes.",h:"Skip the process, they can read that. Tell them the three things that will bite them and who to call.",f:"PREP"},
+{c:"team",t:150,s:"You are the newest person on the team and you have spotted something everyone else has stopped noticing.",h:"Earn the right first. One sentence acknowledging you may be missing context, then the observation, then a question rather than a verdict.",f:"PREP"},
+{c:"team",t:90,s:"You have to tell your manager you are at capacity and something has to move.",h:"Bring the list, not the feeling. Present the trade and let them choose. Never ask them to solve it for you.",f:"PREP"},
+{c:"team",t:120,s:"A junior person has done work that is not good enough. They are proud of it.",h:"Ask what they were solving for before saying anything else. Then one specific gap, one specific fix, and a real deadline.",f:"PREP"},
+{c:"team",t:180,s:"You are running a retrospective on a project that mostly failed. Nobody wants to be the first to say it.",h:"Say it yourself, first, about your own contribution. That is the only thing that unlocks the room.",f:"PREP"},
+{c:"team",t:60,s:"Someone senior asks you a question in a meeting and you do not know the answer.",h:"Say you do not know in four words, say what you do know, say when you will have it. Do not improvise the middle.",f:"PREP"},
+{c:"team",t:120,s:"You are pitching an internal idea that requires budget and nobody asked for it.",h:"Monroe, but the need step has to be their need. Find the thing already hurting them and attach your idea to it.",f:"MONROE"},
+{c:"team",t:90,s:"Two people on your team have stopped speaking to each other and it is now affecting the work. You are addressing them together.",h:"Do not adjudicate the history. Define what has to be true for the work, ask each for one concrete commitment.",f:"PREP"},
+{c:"team",t:120,s:"You have been asked to explain to leadership why a number went down. The honest answer is partly that nobody was watching.",h:"Conclusion first, cause second, fix third. Owning the gap early buys you the credibility to be believed about the fix.",f:"PREP"},
+{c:"team",t:90,s:"You are welcoming a new person on their first morning. Everyone else is busy.",h:"Skip the org chart. Tell them what the team is actually for, one unwritten rule, and who to ask when they are stuck.",f:"PREP"},
+{c:"team",t:150,s:"You are advocating for someone on your team to get a promotion, in front of people who barely know their work.",h:"STAR, but their STAR. Three concrete results with numbers. Character praise without evidence sounds like friendship.",f:"STAR"},
+{c:"team",t:60,s:"You need to interrupt a meeting that has been going in circles for eleven minutes.",h:"Name the pattern neutrally, restate the decision that needs making, propose the next step. Fifteen seconds, then hand it back.",f:"PREP"},
+{c:"team",t:120,s:"Your team is being asked to absorb work from a team that was just cut. You have to say this out loud.",h:"Do not perform optimism. Acknowledge the loss, be exact about what changes, and be honest about what you do not yet know.",f:"PREP"},
+{c:"team",t:90,s:"You are asking for a raise. The last time you tried this, it did not go well.",h:"Open with the ask, not the case. Then evidence of scope that grew, then the number. Do not compare yourself to a colleague.",f:"PREP"},
+{c:"team",t:150,s:"You are explaining to a room of non-specialists why the thing they want will take four months and not four days.",h:"Analogy from their world, then the three phases, then the one place the estimate could be wrong. Honesty about uncertainty buys trust.",f:"PREP"},
+{c:"team",t:120,s:"You are the one who has to say that the deadline everyone has been working towards is not going to happen.",h:"Say it in sentence one. Then what will exist on that date, then what a realistic date is. Delay makes it worse, not softer.",f:"PREP"},
+{c:"team",t:90,s:"Someone gives you feedback in front of others that you think is wrong.",h:"Thank, clarify with a question, defer the substance to a smaller room. Winning the exchange in public loses the argument.",f:"PREP"},
+{c:"team",t:180,s:"You are being asked to defend keeping a project alive that a lot of people think should be killed.",h:"Steelman the case for killing it first, out loud. Then the one thing that changes the calculation.",f:"PREP"},
+{c:"team",t:120,s:"Your team hit a number that nobody expected. You have the floor at the all-hands.",h:"Credit specifically or not at all. Name people and what they did. Then one line about what it proved, not how great everyone is.",f:"PREP"},
+{c:"team",t:60,s:"Somebody asks you, casually, what it is like to work here. They are considering joining.",h:"One true good thing and one true hard thing. The honest downside is what makes the upside believable.",f:"PREP"},
+{c:"team",t:120,s:"You are proposing that the team stop doing something they have done every week for years.",h:"Ask what it was originally for. Show what has changed since. Then propose a trial ending rather than a permanent one.",f:"PREP"},
+{c:"academic",t:180,s:"You have three minutes to explain your entire research project to a panel who have not read it and will judge it on this.",h:"Pyramid. Problem, what you built, what it proved, in that order. The contribution sentence must survive alone.",f:"PYRAMID"},
+{c:"academic",t:120,s:"An examiner asks why you chose your method and not the obvious alternative.",h:"PREP. Name the alternative fairly, then the one constraint that ruled it out. Never say it was easier.",f:"PREP"},
+{c:"academic",t:90,s:"Someone finds a real flaw in your work while you are presenting it.",h:"Concede fast and precisely. Say what it does and does not invalidate. A defended flaw kills more credibility than the flaw.",f:"PYRAMID"},
+{c:"academic",t:150,s:"You are explaining your project to a relative who left school at sixteen and genuinely wants to understand.",h:"One analogy, held all the way through. If you have to abandon the analogy halfway, you picked the wrong one.",f:"PYRAMID"},
+{c:"academic",t:120,s:"You are asked to explain what is actually new about your work, given that similar things exist.",h:"Compare and contrast on the same axes. The delta is the answer. Do not overclaim it, small and real beats large and vague.",f:"CC"},
+{c:"academic",t:180,s:"You are teaching a concept you understand well to a group who are visibly lost.",h:"Concrete before abstract. Give the example first, name the principle second. Reverse of how you learned it.",f:"PYRAMID"},
+{c:"academic",t:90,s:"Your results are weaker than you hoped. You have to present them anyway.",h:"State the result plainly, then what it rules out. Negative findings are still findings if you frame the question they answered.",f:"PYRAMID"},
+{c:"academic",t:120,s:"A supervisor asks for a progress update and you have made less progress than you should have.",h:"What, so what, now what, with a real Now What. Bring one decision you need from them so the meeting has a purpose.",f:"WSN"},
+{c:"academic",t:150,s:"You are on a conference panel and someone asks a question that is really a statement of their own theory.",h:"Find the one genuine question inside it, name it aloud, answer that. Brief, generous, then move on.",f:"PYRAMID"},
+{c:"academic",t:120,s:"You have to explain a technical failure to people who will hear it as incompetence.",h:"Describe the system, not yourself. What the design assumed, what reality did, what changed. Then the safeguard.",f:"PYRAMID"},
+{c:"academic",t:60,s:"Someone asks what the point of your field is.",h:"Do not get defensive. One concrete thing that exists in the world because of it, then the open question that still bothers you.",f:"PYRAMID"},
+{c:"academic",t:180,s:"You are defending a design decision that looks wrong on paper and was right in practice.",h:"Give the paper argument its full weight first, then the constraint that the paper version does not see.",f:"PYRAMID"},
+{c:"academic",t:120,s:"You have five slides worth of results and two minutes. Somebody else overran.",h:"Cut to one finding. One. Say what you cut and offer it afterwards. Rushing all five means none of them land.",f:"PYRAMID"},
+{c:"academic",t:150,s:"You are explaining to a group of first-year students what you wish you had known in their position.",h:"One story, one transferable thing. Advice without a story is wallpaper.",f:"PYRAMID"},
+{c:"academic",t:120,s:"An expert in the room clearly knows more than you about the specific thing you are presenting.",h:"Name their expertise early and invite it. Present what you did, not what is universally true. Scope is your protection.",f:"PYRAMID"},
+{c:"academic",t:90,s:"Someone asks how you would extend the work if you had another year.",h:"Two directions, one safe and one ambitious, and what each would resolve. This question is really about whether you understand your own limits.",f:"PYRAMID"},
+{c:"academic",t:180,s:"You are presenting something you built to people who will use it, not to people who will grade it.",h:"Drop the methodology. Open with what they can now do that they could not do before, then show it.",f:"PYRAMID"},
+{c:"academic",t:120,s:"You disagree with something a lecturer said, in front of the class.",h:"Question, not correction. Frame it as something you cannot reconcile, and name the specific claim, not the person.",f:"PYRAMID"},
+{c:"academic",t:150,s:"Explain a concept from your field to an intelligent twelve-year-old without using a single term of art.",h:"Every time you reach for jargon, substitute the thing itself. If you cannot, you have found the edge of your understanding.",f:"PYRAMID"},
+{c:"academic",t:120,s:"You are asked in a viva what the weakest part of your work is.",h:"Answer honestly and first. A candidate who knows their own weak point is a candidate who understands the work.",f:"PYRAMID"},
+{c:"social",t:120,s:"You are at a wedding. The best man is stuck at an airport. Someone hands you the microphone.",h:"One specific story, one line about the couple, one toast. Do not attempt comprehensive. Specific beats sweeping.",f:"HPPP"},
+{c:"social",t:150,s:"A colleague is leaving after eleven years and you have been asked to say something at short notice.",h:"One thing they did that nobody asked them to do. That is the whole speech. End on what stays behind after they go.",f:"HPPP"},
+{c:"social",t:90,s:"You are introducing a speaker to an audience. You have their bio and thirty seconds.",h:"Not the bio. Why this person, why this room, why now. Then their name last, clearly, so the applause has a cue.",f:"HPPP"},
+{c:"social",t:120,s:"It is your parent's sixtieth. Everyone is waiting. You have been putting off writing anything.",h:"One image from childhood, one thing you understand now that you did not then. Land on gratitude, not on a joke.",f:"HPPP"},
+{c:"social",t:180,s:"You are speaking at the funeral of someone you loved and did not always get along with.",h:"Honesty is the highest form of respect here. One difficulty acknowledged gently makes every good thing you say believable.",f:"HPPP"},
+{c:"social",t:90,s:"You are thanking a group of people for something, and there is one person who did most of the work.",h:"Name them specifically and last, so it lands. General gratitude first, particular gratitude at the end.",f:"HPPP"},
+{c:"social",t:120,s:"You have to say a few words at a housewarming, a birthday, or a small dinner. There is no occasion beyond people being together.",h:"Small stakes are the hardest. Notice one true thing about the room and say it. Thirty seconds is enough.",f:"HPPP"},
+{c:"social",t:150,s:"You are the host. Something has gone wrong with the food, the venue, or the schedule, and everyone knows.",h:"Name it lightly, take it off everyone's shoulders, redirect to why they came. Do not over-apologise, it makes it larger.",f:"HPPP"},
+{c:"social",t:120,s:"You are toasting a friend's new business. You have private doubts about it.",h:"Toast the courage, not the prediction. There is always something true you can raise a glass to.",f:"HPPP"},
+{c:"social",t:90,s:"A group of people you barely know ask you to say something about yourself.",h:"Skip the resume. One thing you are currently obsessed with, one question you would like answered. Give people a hook.",f:"HPPP"},
+{c:"social",t:120,s:"You are accepting an award, and the surprise on your face is real.",h:"Three names, one sentence about what the work is for, sit down. Long acceptances are always worse than short ones.",f:"HPPP"},
+{c:"social",t:150,s:"You are the older one now. A younger relative is about to start something that terrifies them and they have asked you to say something.",h:"Do not reassure. Tell them what will be hard and why it is survivable. Reassurance is forgettable, honesty is not.",f:"HPPP"},
+{c:"social",t:120,s:"You are speaking at a reunion. Some of these people you have not seen in a decade and some you never liked.",h:"Aim at the shared past, not the present. Specific detail from that time does more than any general sentiment.",f:"HPPP"},
+{c:"social",t:90,s:"Someone is retiring and their career was quietly good rather than spectacular.",h:"Consistency is a story if you tell it as one. Count something. Years, people trained, times they showed up.",f:"HPPP"},
+{c:"social",t:120,s:"You are giving a farewell at your own leaving party.",h:"Gratitude specific enough to be true, no grievance, one thing you are taking with you. Keep it shorter than they expect.",f:"HPPP"},
+{c:"social",t:150,s:"You are welcoming strangers into a space, a group, or a community for the first time.",h:"Tell them what this place is for, one norm, and what they are allowed to do in the next ten minutes. Reduce their uncertainty.",f:"HPPP"},
+{c:"social",t:120,s:"You have to make a toast in a language or a culture where you are not sure of the customs.",h:"Say that plainly and briefly, ask for grace, then be sincere. Sincerity translates further than fluency.",f:"HPPP"},
+{c:"social",t:90,s:"You are congratulating someone publicly on something you also wanted and did not get.",h:"Be specific about what they did well. Generic congratulation reads as what it is. Then get out of the way.",f:"HPPP"},
+{c:"social",t:180,s:"You have been asked to open an event and set the tone for the whole day.",h:"One reason they are here, one thing you want them to leave with, one instruction. Under two minutes.",f:"HPPP"},
+{c:"social",t:120,s:"A child in your life is about to do something significant and has asked you what you think.",h:"Talk to them, not to the adults listening. Concrete, plain, one thing to hold onto.",f:"HPPP"},
+{c:"hard",t:120,s:"You have to tell a friend something about their situation that they do not want to hear and everyone else has avoided saying.",h:"Ask permission first. Then say it once, plainly, without softening it into vagueness. Then stop talking and stay.",f:"NEA"},
+{c:"hard",t:150,s:"You are ending a friendship, or naming out loud that it has already ended.",h:"No inventory of grievances. One honest reason, no blame framing, and an acknowledgement of what was real.",f:"NEA"},
+{c:"hard",t:90,s:"Someone has crossed a line with you repeatedly and does not appear to know it.",h:"Describe the behaviour, the effect, and the change you want, in that order. Do not explain why you are entitled to ask.",f:"NEA"},
+{c:"hard",t:120,s:"You have to apologise for something you did that you are still partly defending in your own head.",h:"Name the harm before the intent. Intent belongs in one clause at most, and only if it does not function as an excuse.",f:"NEA"},
+{c:"hard",t:150,s:"A family member wants money and you are going to say no.",h:"No first, reason second, and the reason should be about you and not about their choices. Then, if you mean it, an alternative.",f:"NEA"},
+{c:"hard",t:120,s:"Someone is telling you about a decision they have made that you think is a mistake, and they are not asking for your opinion.",h:"Ask two questions before offering anything. If you still say it, say it once and make clear you are with them either way.",f:"NEA"},
+{c:"hard",t:90,s:"You have to admit to someone that you have been avoiding them.",h:"Say the avoidance itself first. The reason is less important than the acknowledgement. Do not make them reassure you.",f:"NEA"},
+{c:"hard",t:150,s:"A partner or close friend says something that lands badly. You want to respond well rather than fast.",h:"Reflect what you heard before responding to it. Getting the interpretation checked prevents ninety percent of the argument.",f:"NEA"},
+{c:"hard",t:120,s:"You are telling someone close to you about a plan they will take as a rejection of them.",h:"Lead with what is not changing. Then the decision, then the reason. The order determines what they hear.",f:"NEA"},
+{c:"hard",t:150,s:"You have to raise something with a landlord, neighbour, or institution where you have less power than they do.",h:"Calm, factual, dated. Specifics are your leverage. State the outcome you want as an expectation, not a request.",f:"NEA"},
+{c:"hard",t:120,s:"Someone apologises to you and you do not accept it yet.",h:"Do not perform forgiveness to end the discomfort. Say what you have heard, say what you still need, say you will come back to it.",f:"NEA"},
+{c:"hard",t:90,s:"You have to tell someone that a thing they made, wrote, or built is not working.",h:"Ask what they were going for. Then the gap between that and what you saw. Judgement without their intent is just taste.",f:"NEA"},
+{c:"hard",t:150,s:"You are the one who has to raise the subject that the whole family has agreed silently not to raise.",h:"Name the silence itself before the subject. That gives everyone a way in that does not require blame.",f:"NEA"},
+{c:"hard",t:120,s:"Someone has made a joke at your expense in front of others and you are going to address it.",h:"Light, direct, no speech. One sentence that makes the cost visible without escalating. Then continue as normal.",f:"NEA"},
+{c:"hard",t:150,s:"You need to tell someone that you cannot keep doing something you have been doing for them for a long time.",h:"Gratitude for what it has been, clarity about what changes, a date. Do not let them negotiate you into a maybe.",f:"NEA"},
+{c:"hard",t:120,s:"You are being blamed for something that is not your fault, by someone who is upset for good reason.",h:"Deal with the upset before the facts. Correct the record once, calmly, later in the conversation, not first.",f:"NEA"},
+{c:"hard",t:150,s:"You have to tell someone bad news about their health, job, or family that you learned before they did.",h:"Warn, pause, tell. Short sentences, then silence. Do not fill it and do not add context they have not asked for.",f:"NEA"},
+{c:"hard",t:120,s:"You are asking someone to forgive a debt, a favour, or an obligation you cannot meet.",h:"State it plainly without the long backstory. Offer what you can do. Do not perform hardship, it invites suspicion.",f:"NEA"},
+{c:"hard",t:90,s:"Somebody says something prejudiced in a group and everyone goes quiet.",h:"Short. A question is often stronger than a statement. The goal is to end the silence, not to win.",f:"NEA"},
+{c:"hard",t:150,s:"You are telling someone you are proud of them, and this is not a thing your relationship normally does.",h:"Acknowledge the awkwardness in half a sentence, then be specific about what you saw. Specificity is what makes it survivable.",f:"NEA"},
+{c:"hard",t:120,s:"You have to break a promise. The other person built plans around it.",h:"Lead with the break, not the reason. Then the cost to them, acknowledged out loud, then what you will do about it.",f:"NEA"},
+{c:"hard",t:150,s:"Someone is spiralling and asking you a question you do not have the answer to.",h:"Do not solve. Say what is true, say what you can do, stay in the room. Presence over content.",f:"NEA"},
+{c:"hard",t:120,s:"You are declining an invitation from someone who will be hurt by it.",h:"No, once. Warmth, once. Do not manufacture a reason, and do not over-explain, which reads as either guilt or a negotiation.",f:"NEA"},
+{c:"hard",t:150,s:"A former mentor or teacher gives you advice that was right ten years ago and is wrong now.",h:"Honour the relationship explicitly, then describe what has changed in the world rather than what is wrong with them.",f:"NEA"},
+{c:"hard",t:120,s:"You have to tell a group that you are stepping back from something you helped build.",h:"Clean, early, unambiguous. What you are handing over and to whom. Ambiguity here creates more damage than the departure.",f:"NEA"},
+{c:"civic",t:180,s:"You have three minutes at a public meeting to argue for something that will cost the people in the room money.",h:"Monroe. The visualisation step is not optional here. Describe the specific day when they will feel the benefit.",f:"MONROE"},
+{c:"civic",t:120,s:"You are speaking on behalf of a group of people who are not in the room and cannot speak for themselves.",h:"One person, named or described, not a category. Statistics after the story, never before.",f:"MONROE"},
+{c:"civic",t:150,s:"You are trying to persuade a room that a problem they consider solved is not solved.",h:"Concede the progress genuinely and in detail. Then the gap. Denying the progress loses them in the first thirty seconds.",f:"MONROE"},
+{c:"civic",t:120,s:"Someone asks you what you would actually do differently, having heard you criticise something for ten minutes.",h:"Three specifics, sequenced, with the first one small enough to start next week. Critique without a first step reads as complaint.",f:"STAR"},
+{c:"civic",t:180,s:"You are addressing people who agree with your goal and disagree with your method.",h:"Agree loudly on the goal first. Then the method question as a trade-off, not a moral point. Give them the cost of your approach.",f:"MONROE"},
+{c:"civic",t:150,s:"You have been asked to explain a local problem to someone with the power to fix it who has three minutes.",h:"Pyramid. The ask in sentence one. What it costs, who it affects, what you need from them specifically.",f:"PYRAMID"},
+{c:"civic",t:120,s:"You are rallying a group of volunteers who are tired and starting to drift.",h:"Name the tiredness. Then one thing that changed because of them, concrete and small. Then one clear next action.",f:"MONROE"},
+{c:"civic",t:150,s:"You are speaking against something popular, to people who are enjoying it.",h:"Earn the right to be heard by showing you understand the appeal. Then the cost. Do not moralise, describe.",f:"MONROE"},
+{c:"civic",t:120,s:"A journalist stops you and asks for your reaction to something you have only half-heard about.",h:"Say what you know, flag what you do not, refuse to speculate. One clean quotable sentence beats four hedged ones.",f:"MONROE"},
+{c:"civic",t:180,s:"You are arguing for patience on something where everyone wants immediate action.",h:"Validate the urgency completely. Then the specific failure mode of moving fast here. Offer something that can happen now.",f:"MONROE"},
+{c:"civic",t:150,s:"You are asking a room of strangers for money for a cause.",h:"One story, one number, one ask with a specific amount. Vague amounts get vague responses.",f:"MONROE"},
+{c:"civic",t:120,s:"You are correcting a widely believed piece of misinformation to people who believe it.",h:"Lead with the true thing, not the false thing. Repeating the myth to debunk it makes it more familiar and more believable.",f:"MONROE"},
+{c:"civic",t:150,s:"You are speaking about your country, your city, or your community to outsiders who mostly know one bad headline.",h:"Acknowledge the headline, complicate it with specifics, do not overcorrect into a brochure. Complexity is the point.",f:"MONROE"},
+{c:"civic",t:120,s:"You have to argue for a policy you support but did not choose, and there are parts of it you would change.",h:"Argue the core honestly, name the part you would change as a known trade-off. Total defence sounds like a script.",f:"MONROE"},
+{c:"civic",t:180,s:"You are handing over an issue you have led on to a younger group who intend to do it differently.",h:"What we learned, what we got wrong, what is yours now. Resist prescribing method.",f:"MONROE"},
+{c:"civic",t:120,s:"Someone challenges you on whether you have the standing to speak about this at all.",h:"Answer it directly and without defensiveness. Say what your relationship to it is, precisely, then continue.",f:"MONROE"},
+{c:"civic",t:150,s:"You are proposing something that will only pay off after you and everyone in the room have moved on.",h:"Long horizons need a near story. Find the visible thing that happens in year one.",f:"MONROE"},
+{c:"civic",t:120,s:"You are speaking to an audience where a third of them have already decided you are wrong.",h:"Speak to the middle third. Concede the strongest point on the other side by name. That is what the undecided are listening for.",f:"MONROE"},
+{c:"explain",t:120,s:"Explain to someone how the thing you do all day actually works, when they have zero background in it.",h:"One analogy, held throughout. Test it: does the analogy break at the important part? Then find another.",f:"ANALOGY"},
+{c:"explain",t:150,s:"Explain how the internet gets a page onto someone's screen, to someone who has never thought about it.",h:"Chronological, follow one request the whole way. A journey is easier to hold than a system.",f:"CHRONO"},
+{c:"explain",t:120,s:"Explain compound interest to someone who has never had savings.",h:"One concrete number, doubled repeatedly out loud. The arithmetic is the argument.",f:"ANALOGY"},
+{c:"explain",t:150,s:"Explain what makes a good design different from a pretty one, to someone who thinks it is all taste.",h:"Two examples, same brief, different outcomes. Show the criterion, do not assert that one exists.",f:"ANALOGY"},
+{c:"explain",t:120,s:"Explain why the price of something has gone up, to someone who suspects they are being cheated.",h:"Take the suspicion seriously first. Then trace the cost through one link at a time, naming who takes what.",f:"ANALOGY"},
+{c:"explain",t:150,s:"Explain how an algorithm decides what someone sees on their phone.",h:"Avoid the word algorithm after the first sentence. Describe what it is measuring and what it is rewarding.",f:"ANALOGY"},
+{c:"explain",t:120,s:"Explain a rule or law that seems arbitrary, in a way that shows what it was originally for.",h:"Chronological. What went wrong before the rule existed. Rules make sense backwards.",f:"CHRONO"},
+{c:"explain",t:150,s:"Explain to a beginner what they should learn first in your field, and why the obvious answer is wrong.",h:"Name the obvious answer, give it credit, then the ordering argument. Sequence advice needs a reason or it is just preference.",f:"ANALOGY"},
+{c:"explain",t:120,s:"Explain how a vaccine works to someone who is not opposed, just unclear.",h:"Analogy first, mechanism second, and stop before the caveats. Over-qualifying an explanation creates doubt you did not intend.",f:"ANALOGY"},
+{c:"explain",t:150,s:"Explain what happens to money when it goes into a bank.",h:"Follow one note. The surprising fact belongs in the middle, not the opening.",f:"ANALOGY"},
+{c:"explain",t:120,s:"Explain the difference between two things people constantly confuse in your field.",h:"Compare and contrast on the same two or three criteria. End with the test someone can apply themselves.",f:"CC"},
+{c:"explain",t:150,s:"Explain a piece of technical jargon you use daily, without using any other jargon.",h:"If you need a second term to explain the first, you have not finished. Reach for a physical object instead.",f:"ANALOGY"},
+{c:"explain",t:120,s:"Explain why something that looks simple is actually hard.",h:"Walk them into the trap. Let them agree it looks simple, then reveal the second constraint that breaks the obvious solution.",f:"ANALOGY"},
+{c:"explain",t:150,s:"Explain to an older relative how to do something on a device, without touching it.",h:"Say what they will see before you say what to press. Landmarks before instructions.",f:"ANALOGY"},
+{c:"explain",t:120,s:"Explain a common cognitive bias using an example from the listener's own likely experience.",h:"Get them to make the error first, in a small hypothetical, then name it. Demonstration beats definition.",f:"ANALOGY"},
+{c:"explain",t:150,s:"Explain how electricity gets from a power station to a light in a room.",h:"One journey, four stops. Resist adding physics. The mental model matters more than accuracy at this level.",f:"ANALOGY"},
+{c:"explain",t:120,s:"Explain why your estimate for a piece of work is a range and not a number.",h:"Name the two or three unknowns explicitly. Ranges without named unknowns sound like hedging.",f:"ANALOGY"},
+{c:"explain",t:150,s:"Explain a mistake you see beginners make constantly, and what they are actually getting wrong underneath it.",h:"Surface error, then the belief that produces it. Fixing the belief fixes a class of errors.",f:"ANALOGY"},
+{c:"explain",t:120,s:"Explain what a contract clause actually means to someone about to sign it.",h:"Translate into what happens if things go wrong. Clauses are only meaningful as scenarios.",f:"ANALOGY"},
+{c:"explain",t:150,s:"Explain to a client what artificial intelligence can and cannot do for their business, without hype and without dismissal.",h:"Two lists, concrete, from their world. End with the one thing you would try first and why.",f:"ANALOGY"},
+{c:"story",t:150,s:"Tell the story of a time you were completely wrong about something important.",h:"And, but, therefore. The turn is the whole story. Do not rush past the moment you realised.",f:"ABT"},
+{c:"story",t:120,s:"Tell the story of the first time you got paid for something you made.",h:"One scene, sensory detail, then what it changed. Resist the moral at the end.",f:"ABT"},
+{c:"story",t:180,s:"Tell the story of a decision you made that everyone around you disagreed with.",h:"Give the objections their real weight. If the opposition sounds weak, the decision sounds obvious and the story dies.",f:"ABT"},
+{c:"story",t:150,s:"Tell the story of someone who changed the direction of your life without meaning to.",h:"Start at the moment, not at the background. Introduce them through what they did, not who they were.",f:"STAR"},
+{c:"story",t:120,s:"Tell the story of the worst thing you ever shipped, made, or handed in.",h:"Do not soften it. The comedy and the credibility both live in the specifics of how bad it was.",f:"ABT"},
+{c:"story",t:150,s:"Tell the story of a time you had to start again from nothing.",h:"Three beats: the loss, the flat middle where nothing worked, the first thing that did. Do not skip the flat middle.",f:"ABT"},
+{c:"story",t:120,s:"Tell the story of something you were afraid of and did anyway.",h:"Locate the fear physically. Describe the minute before, not the achievement after.",f:"ABT"},
+{c:"story",t:180,s:"Tell the story of a place that no longer exists the way you knew it.",h:"Detail, detail, then the change. Let the reader love it before you take it away.",f:"ABT"},
+{c:"story",t:150,s:"Tell the story of the moment you knew you would not become the thing you had planned to become.",h:"Small moment, large consequence. The bigger the realisation, the smaller the scene should be.",f:"ABT"},
+{c:"story",t:120,s:"Tell the story of a piece of advice you ignored and later needed.",h:"Set up why ignoring it was reasonable at the time. Self-flagellation is less interesting than honest reasoning.",f:"ABT"},
+{c:"story",t:150,s:"Tell the story of a stranger you have thought about for years.",h:"Resist explaining what it meant. Let the encounter carry it.",f:"ABT"},
+{c:"story",t:120,s:"Tell the story of a competition, exam, or trial you lost.",h:"The interesting part is the ninety seconds after you knew. Go there.",f:"ABT"},
+{c:"story",t:180,s:"Tell the story of how you learned to do the thing you are now best at.",h:"Chronological but uneven. Find the plateau and the thing that broke it.",f:"CHRONO"},
+{c:"story",t:150,s:"Tell the story of a time you were the only person in the room who thought something.",h:"Describe the room first, so the isolation is felt rather than claimed.",f:"ABT"},
+{c:"story",t:120,s:"Tell the story of a small kindness that landed at exactly the right time.",h:"Set the state you were in before the kindness. Without that, the kindness is just an event.",f:"ABT"},
+{c:"story",t:150,s:"Tell the story of a family story that has been told so many times you are not sure it is true.",h:"Tell it as it is told, then tell what you actually know. The gap is the story.",f:"ABT"},
+{c:"story",t:120,s:"Tell the story of the last time you were genuinely surprised.",h:"Surprise requires a stated expectation. Set the expectation clearly or the surprise has nothing to work against.",f:"ABT"},
+{c:"story",t:180,s:"Tell the story of a friendship that ended without a fight.",h:"Resist the tidy explanation. The absence of a cause is the interesting thing.",f:"ABT"},
+{c:"story",t:150,s:"Tell the story of a risk you took that did not pay off, and what you would do again.",h:"Separate the decision from the outcome explicitly. Good decisions with bad outcomes are the most useful stories you have.",f:"ABT"},
+{c:"story",t:120,s:"Tell the story of the first time you saw something you had only read about.",h:"Compare the imagined version to the real one. That gap is the whole piece.",f:"ABT"},
+{c:"story",t:150,s:"Tell the story of a night that went completely differently from how it was supposed to go.",h:"Establish the plan in two sentences so the deviation has something to break.",f:"ABT"},
+{c:"story",t:120,s:"Tell the story of a habit you have that you cannot fully explain.",h:"Describe it precisely and comically before you attempt the origin. Some of it should stay unexplained.",f:"ABT"},
+{c:"spotlight",t:120,s:"You are on a podcast. The host opens with so, tell us about yourself.",h:"Not chronological. One line on what you do, one on why you do it that way, one hook they can follow up on.",f:"CHRONO"},
+{c:"spotlight",t:90,s:"A camera is on you and someone asks what you think about a development in your field from this week.",h:"One position, one reason, one implication. Hedging on camera reads as having nothing to say.",f:"HPPP"},
+{c:"spotlight",t:150,s:"You are on a panel with three other people and you have spoken the least. There are six minutes left.",h:"Do not wait for a gap. Attach to the last speaker, disagree slightly, then add. Agreement is not memorable.",f:"HPPP"},
+{c:"spotlight",t:120,s:"An interviewer asks a question that is subtly hostile and dressed as neutral.",h:"Answer the fair version out loud. Name the reframe once, briefly, without indignation, then answer.",f:"HPPP"},
+{c:"spotlight",t:90,s:"You are asked to summarise your entire position in one sentence, at the end of a long interview.",h:"Prepare this before you need it. One clause of what, one of why it matters. Cut everything else.",f:"PREP"},
+{c:"spotlight",t:150,s:"You are being interviewed about a project that went well, and you want to avoid sounding like a press release.",h:"Volunteer one thing that was harder than expected. Specific difficulty is what makes the success believable.",f:"HPPP"},
+{c:"spotlight",t:120,s:"You are speaking to a camera with no audience, no cues, and no reaction.",h:"Slow down more than feels right, and address one imagined person. Broadcast voice to nobody sounds hollow.",f:"HPPP"},
+{c:"spotlight",t:150,s:"Someone with a large audience misrepresents your work publicly. You are responding.",h:"Correct the fact, not the person. One correction, calmly stated, no thread. Escalation loses even when you are right.",f:"HPPP"},
+{c:"spotlight",t:120,s:"You are asked a question about something outside your expertise, live, and the honest answer is that you do not know.",h:"Say so, then say who would know, then return to what you can speak to. This raises credibility rather than lowering it.",f:"HPPP"},
+{c:"spotlight",t:180,s:"You have a keynote slot and the audience has been sitting for four hours.",h:"Acknowledge the room's state in the first ten seconds. Then something concrete. Abstractions die in a tired room.",f:"HPPP"},
+{c:"spotlight",t:120,s:"You are being asked to react to praise you think is overstated.",h:"Accept it cleanly, redirect to the thing rather than yourself, then move. Deflecting too hard makes the moment about your discomfort.",f:"HPPP"},
+{c:"spotlight",t:150,s:"A moderator cuts you off mid-point and moves to someone else. You get one more turn.",h:"Do not restart. One sentence to land the unfinished point, then something new. Rewinding wastes the turn.",f:"STAR"},
+{c:"spotlight",t:120,s:"You are speaking to an audience through a translator, in short segments.",h:"Short sentences, one idea per segment, no clauses stacked. The rhythm is the discipline.",f:"HPPP"},
+{c:"spotlight",t:150,s:"Your slides have failed and will not be coming back.",h:"Say it once, lightly, then continue as if this were the plan. The audience takes their cue from your first ten seconds.",f:"HPPP"},
+{c:"spotlight",t:120,s:"You are asked what you would say to someone who thinks what you do is unnecessary.",h:"Steelman them properly first. Then the specific thing that is lost without it.",f:"HPPP"},
+{c:"spotlight",t:180,s:"You are speaking at an event where you are clearly the least experienced person on the programme.",h:"Do not apologise for it and do not pretend otherwise. Speak from the only vantage point you uniquely have.",f:"HPPP"},
+{c:"ambush",t:60,s:"Someone hands you a microphone with no warning and says, just say a few words.",h:"Any structure beats none. Thank, observe, close. Thirty seconds well done beats two minutes of wandering.",f:"PREP"},
+{c:"ambush",t:90,s:"You walk into a meeting and are told you are presenting first. You thought you were attending.",h:"State what you know, what you do not, and what you need. Confidence about the shape covers gaps in the content.",f:"PREP"},
+{c:"ambush",t:60,s:"A senior person you have never met asks you, in a lift, what you are working on.",h:"One sentence they could repeat to someone else. That is the whole objective.",f:"PREP"},
+{c:"ambush",t:90,s:"At a dinner, someone asks the table what you all think about a subject you have never considered.",h:"Think out loud honestly. Name what you would need to know to have a view. That is more interesting than a fake opinion.",f:"PREP"},
+{c:"ambush",t:60,s:"You are asked to explain, right now, in front of people, why you made a choice you made instinctively.",h:"Reconstruct the reasoning honestly, including the instinct. Do not invent a rational chain you did not use.",f:"PREP"},
+{c:"ambush",t:90,s:"A child asks you a question in front of adults and the honest answer is complicated.",h:"Answer the child. One true sentence at their level, then an invitation to ask more.",f:"PREP"},
+{c:"ambush",t:60,s:"Someone quotes something you said months ago and asks whether you still think that.",h:"Say whether you do. If you have changed your mind, say what changed it. Changing your mind well is a demonstration of judgement.",f:"PREP"},
+{c:"ambush",t:90,s:"You are asked, unexpectedly, to defend a decision that someone else in your organisation made.",h:"Explain the reasoning you understand, mark clearly what is your view and what is not. Do not pretend to ownership you lack.",f:"PREP"},
+{c:"ambush",t:60,s:"Someone introduces you with a description of your work that is wrong. You have the floor next.",h:"Correct it in half a sentence, warmly, then go. Leaving it uncorrected costs you the rest of the talk.",f:"PREP"},
+{c:"ambush",t:90,s:"You are asked to fill five minutes because the next speaker has not arrived.",h:"Do not improvise a talk. Ask the room a question and respond to answers. Turning it into a conversation buys real time.",f:"PREP"},
+{c:"ambush",t:60,s:"A group falls silent and everyone looks at you.",h:"Name the silence, ask a question. Nobody expects brilliance, they expect motion.",f:"PREP"},
+{c:"ambush",t:90,s:"You are asked to translate, summarise, or explain what has just been said, having only half-followed it.",h:"Summarise what you are confident about, name the gap, and ask the speaker to fill it. Faking coherence here is very visible.",f:"PREP"},
+{c:"ambush",t:60,s:"Someone asks you the price of your work in a social setting, in front of others.",h:"Give a real range without discomfort, or name what it depends on. Hesitating is the only bad answer.",f:"PREP"},
+{c:"ambush",t:90,s:"You arrive late and are asked to catch up the room on the part you were meant to lead.",h:"Do not apologise twice. Land the substance, then apologise once, briefly, at the end.",f:"PREP"},
+{c:"ambush",t:60,s:"Someone asks you what you are reading, watching, or thinking about lately, and you want to give a real answer.",h:"One thing, one reason it caught you, one question it left. Answering fully is rarer than you think.",f:"PREP"},
+{c:"ambush",t:90,s:"You are asked to argue for a position you have never held, right now, with no preparation.",h:"Find the strongest version, not the version you dislike. Argue as though someone you respect believes it.",f:"PREP"},
+{c:"abstract",t:120,s:"Speak on the difference between being alone and being lonely.",h:"Two examples before any definitions. Abstract topics need concrete anchors within the first fifteen seconds.",f:"PREP"},
+{c:"abstract",t:120,s:"Speak on something ordinary that you think is underrated.",h:"Take a real position and defend it seriously. Playing it for laughs is the easy way out.",f:"PREP"},
+{c:"abstract",t:150,s:"Speak on whether it is better to be good at one thing or competent at many.",h:"Pick a side in sentence one. Then the strongest case for the other side. Then why you still land where you do.",f:"PREP"},
+{c:"abstract",t:120,s:"Speak on what a city sounds like at four in the morning.",h:"Sensory and specific. Resist metaphor for the first minute. Description is a skill you rarely get to practise out loud.",f:"PREP"},
+{c:"abstract",t:150,s:"Speak on the last time you changed your mind about something significant.",h:"The mechanism matters more than the conclusion. What was the actual thing that moved you?",f:"PREP"},
+{c:"abstract",t:120,s:"Speak on whether talent or persistence matters more, using only examples from your own life.",h:"Personal evidence only. The constraint forces specificity and blocks the platitudes.",f:"PREP"},
+{c:"abstract",t:150,s:"Speak on what you would want to be remembered for by people who never met you.",h:"Resist grandeur. The honest answer is usually smaller and more interesting than the impressive one.",f:"PREP"},
+{c:"abstract",t:120,s:"Speak on the value of doing something badly.",h:"One argument, one counterexample you take seriously, one conclusion.",f:"PREP"},
+{c:"abstract",t:150,s:"Speak on what you think people will find strange about how we live now, in fifty years.",h:"Three guesses, ranked by confidence. Say which one you would bet on.",f:"PREP"},
+{c:"abstract",t:120,s:"Speak on something you believe that most people you know disagree with.",h:"Say the belief in one clean sentence before defending it. Long preambles signal that you expect to be attacked.",f:"PREP"},
+{c:"abstract",t:150,s:"Speak on the difference between confidence and competence.",h:"Two examples from opposite directions. Someone confident and wrong, someone competent and quiet.",f:"PREP"},
+{c:"abstract",t:120,s:"Speak on whether it is possible to know someone.",h:"Ground it in one specific relationship immediately. Philosophy without a person is fog.",f:"PREP"},
+{c:"abstract",t:150,s:"Speak on what money cannot buy, without saying anything anyone has heard before.",h:"The clichés are the trap. Find the specific, unexpected, personal instance and stay there.",f:"PREP"},
+{c:"abstract",t:120,s:"Speak on what makes something beautiful.",h:"Start with one object in front of you, or one you remember. Definition last, if at all.",f:"STAR"},
+{c:"abstract",t:150,s:"Speak on a rule you follow that you have never explained to anyone.",h:"Describe the rule, then reconstruct where it came from. The origin is the interesting part.",f:"PREP"},
+{c:"abstract",t:120,s:"Speak on whether people are mostly the same or mostly different.",h:"Take a side, use two examples, acknowledge the strongest objection. Refusing to choose is not nuance.",f:"PREP"},
+{c:"abstract",t:150,s:"Speak on the last thing that genuinely delighted you.",h:"Reconstruct the moment, do not summarise the feeling. Delight is in the specifics.",f:"PREP"},
+{c:"abstract",t:120,s:"Speak on what you owe to people you will never meet.",h:"One concrete obligation, argued properly, beats a general sense of duty.",f:"PREP"},
+{c:"abstract",t:150,s:"Speak on whether it is better to be feared, liked, or ignored.",h:"Three positions, one chosen, and a real cost admitted for the one you chose.",f:"PREP"},
+{c:"abstract",t:120,s:"Speak on a word you think is used badly.",h:"Give the misuse, the original sense, and what is lost. Language complaints need evidence or they are just taste.",f:"PREP"},
+{c:"abstract",t:150,s:"Speak on the thing you have spent the most hours of your life doing.",h:"Count it out loud. The number should reframe how the audience hears everything after it.",f:"PREP"},
+{c:"abstract",t:120,s:"Speak on what you were wrong about at twenty.",h:"Be fair to your younger self. Contempt for who you were makes the story less interesting, not more.",f:"PREP"},
+{c:"abstract",t:150,s:"Speak on whether new is usually better.",h:"Pick a domain rather than answering in general. The answer differs by domain, and saying so is the insight.",f:"PREP"},
+{c:"abstract",t:120,s:"Speak on silence.",h:"Use some. A deliberate pause in a talk about silence is the strongest move available and almost nobody takes it.",f:"PREP"},
+{c:"abstract",t:150,s:"Speak on a skill you wish were taught and is not.",h:"Argue for the trade-off, not just the addition. What would you remove to make room?",f:"PREP"},
+{c:"side",t:120,s:"Argue that remote work is worse for people early in their careers.",h:"Take the position fully. Then the strongest counterargument, named and answered, not waved at.",f:"STEELMAN"},
+{c:"side",t:120,s:"Argue that most meetings should be replaced by writing.",h:"Concede where meetings win first. A one-sided case is easy to dismiss.",f:"STEELMAN"},
+{c:"side",t:150,s:"Argue that credentials matter more than portfolios, or the reverse. Pick the side you disagree with.",h:"Argue it as though you believe it. Find the real reasons, not the ones that let you signal your actual view.",f:"STEELMAN"},
+{c:"side",t:120,s:"Argue that the customer is usually wrong.",h:"Distinguish between what they want and what they are describing. The distinction is the whole argument.",f:"STEELMAN"},
+{c:"side",t:150,s:"Argue that specialising early is a mistake.",h:"Define early. Vague terms are where these debates go to die.",f:"STEELMAN"},
+{c:"side",t:120,s:"Argue that social media has been net positive for the world.",h:"Take the harder side seriously. Concede the harms specifically, then argue the ledger.",f:"STEELMAN"},
+{c:"side",t:150,s:"Argue that formal education is worth its cost.",h:"Separate signalling value from learning value out loud. The distinction is where the argument is actually won.",f:"STEELMAN"},
+{c:"side",t:120,s:"Argue that people should be paid for their time and not their output.",h:"One clean principle, one hard case for your side, one honest cost.",f:"STEELMAN"},
+{c:"side",t:150,s:"Argue that ambition is overrated.",h:"Define what you mean in the first sentence, or you will spend two minutes arguing past everyone.",f:"STEELMAN"},
+{c:"side",t:120,s:"Argue that the best work happens under constraint, not freedom.",h:"Two examples, one from art and one from engineering. Cross-domain evidence is disproportionately persuasive.",f:"STEELMAN"},
+{c:"side",t:150,s:"Argue that everyone should learn to code, or that almost nobody needs to.",h:"Pick, commit, and give the strongest version of the other side before you close.",f:"STEELMAN"},
+{c:"side",t:120,s:"Argue that failure is not a good teacher.",h:"Contrarian positions need mechanism, not just attitude. Explain what failure actually teaches and what it does not.",f:"STEELMAN"},
+{c:"side",t:150,s:"Argue that a small, boring, profitable business is a better outcome than a fast-growing one.",h:"Attack the assumption behind the comparison rather than the numbers.",f:"STEELMAN"},
+{c:"side",t:120,s:"Argue that authenticity is a bad thing to optimise for.",h:"Define the term first. Then the specific failure mode. Then what you would optimise for instead.",f:"STEELMAN"},
+{c:"side",t:150,s:"Argue that we should spend less on space and more on the ocean, or the reverse.",h:"Resource arguments need a comparable unit. Establish it early or you are comparing feelings.",f:"STEELMAN"},
+{c:"side",t:120,s:"Argue that talent should be paid in proportion to how rare it is, not how useful it is.",h:"Follow the logic to its uncomfortable conclusion and say the uncomfortable part out loud.",f:"STEELMAN"},
+{c:"side",t:150,s:"Argue against something you personally do every day.",h:"The strongest version of this makes the audience unsure what you actually believe.",f:"STEELMAN"},
+{c:"side",t:120,s:"Argue that being interesting is more useful than being competent.",h:"Deliberately provocative framing. Establish the domain where it is true, then defend that domain.",f:"STEELMAN"},
+{c:"side",t:150,s:"Argue that a rule everyone in your field follows should be abandoned.",h:"Give the rule its full justification first. Then the change in conditions that retired it.",f:"STEELMAN"},
+{c:"side",t:120,s:"Argue that most advice is useless because it is not transferable.",h:"If you are right, this argument undermines itself. Address that directly, it is the most interesting move available.",f:"STEELMAN"},];
+
+const STRUCTURES = {
+  PREP:    ["PREP", "Point, reason, example, point. Your default for answering a question."],
+  HPPP:    ["Hook, point, proof, punch", "For taking the floor rather than answering. Attention first, then a close that lands."],
+  SCQA:    ["SCQA", "Situation, complication, question, answer. Builds the question in their head, then answers it."],
+  STAR:    ["STAR", "Situation, task, action, result. For anything beginning tell me about a time."],
+  MONROE:  ["Monroe's sequence", "Attention, need, satisfaction, visualisation, action. Persuasion that ends in an ask."],
+  PAS:     ["Problem, agitate, solve", "Short persuasion. Make the cost concrete before you offer the fix."],
+  PYRAMID: ["Pyramid", "Conclusion first, then three supports, then evidence. For busy or senior listeners."],
+  WSN:     ["What, so what, now what", "For updates. The middle step is the one everyone skips."],
+  ABT:     ["And, but, therefore", "The story engine. If there is no but, it is a list."],
+  CC:      ["Compare and contrast", "Same criteria, same order, both options. Then recommend."],
+  CHRONO:  ["Chronological", "In the order it happened, with uneven pacing. Slow at the decision."],
+  NEA:     ["Name it, effect, ask", "For hard conversations. The behaviour, what it causes, the change you want."],
+  ANALOGY: ["Anchor, mechanism, check", "For explaining. One analogy held throughout, then test they have it."],
+  STEELMAN:["Position, objection, answer", "For taking a side. Give the other case its full weight before you close."]
+};
+
+/* ---------- storage ---------- */
+const KEY = "stand-and-speak-v1";
+let store = {seen:[], reps:0, days:[], sound:true, guide:true, log:[]};
+try{ const raw = localStorage.getItem(KEY); if(raw) store = Object.assign(store, JSON.parse(raw)); }catch(e){}
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(store)); }catch(e){} }
+
+/* ---------- elements ---------- */
+const $ = id => document.getElementById(id);
+const el = {
+  intro:$("intro"), card:$("card"), cat:$("cat"), len:$("len"), text:$("text"),
+  clockwrap:$("clockwrap"), clock:$("clock"), clocklabel:$("clocklabel"),
+  shape:$("shape"), logcard:$("logcard"), hint:$("hint"), controls:$("controls"),
+  tide:$("tide"), tally:$("tally"), remaining:$("remaining"),
+  fcat:$("fcat"), flen:$("flen"), fprep:$("fprep"), foot:$("foot"),
+  panel:$("panel"), paneltitle:$("paneltitle"), panelbody:$("panelbody")
+};
+
+let phase = "idle", current = null, entry = null;
+let endsAt = 0, total = 0, ticker = null;
+
+/* ---------- helpers ---------- */
+const mmss = s => Math.floor(s/60) + ":" + String(Math.max(0,Math.round(s%60))).padStart(2,"0");
+function words(s){
+  if(s < 60) return s + " seconds";
+  if(s % 60 === 0) return (s/60) + " minute" + (s>60?"s":"");
+  return Math.floor(s/60) + " min " + (s%60) + " sec";
+}
+const speakLength = sc => el.flen.value === "auto" ? sc.t : parseInt(el.flen.value,10);
+
+function pool(){
+  const c = el.fcat.value, out = [];
+  for(let i=0;i<SCENARIOS.length;i++){ if(c==="all"||SCENARIOS[i].c===c) out.push(i); }
+  return out;
+}
+
+let actx = null;
+function beep(freq, ms){
+  if(!store.sound) return;
+  try{
+    if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)();
+    const ctx = actx; if(ctx.state === "suspended") ctx.resume();
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.value = freq; o.type = "sine";
+    g.gain.setValueAtTime(.0001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.18, ctx.currentTime+.02);
+    g.gain.exponentialRampToValueAtTime(.0001, ctx.currentTime + ms/1000);
+    o.connect(g); g.connect(ctx.destination); o.start();
+    o.stop(ctx.currentTime + ms/1000 + .05);
+  }catch(e){}
+}
+
+/* ---------- controls ---------- */
+function buttons(list){
+  el.controls.innerHTML = "";
+  list.forEach(b => {
+    const n = document.createElement("button");
+    n.className = b.k; n.textContent = b.label; n.onclick = b.fn;
+    el.controls.appendChild(n);
+  });
+}
+function renderControls(){
+  if(phase === "idle") buttons([{k:"primary",label:"Draw a scenario",fn:draw}]);
+  else if(phase === "ready") buttons([
+    {k:"primary",label: parseInt(el.fprep.value,10) ? "Start prep" : "Start speaking", fn:start},
+    {k:"ghost",label:"Draw another",fn:draw}
+  ]);
+  else if(phase === "prep") buttons([
+    {k:"primary",label:"Skip prep, start now",fn:goLive},
+    {k:"ghost",label:"Cancel",fn:reset}
+  ]);
+  else if(phase === "live") buttons([
+    {k:"ghost",label:"Stop",fn:finish},
+    {k:"bare",label:"Add 30 seconds",fn:()=>{endsAt += 30000; total += 30; tick();}}
+  ]);
+  else if(phase === "done") buttons([
+    {k:"primary",label:"Next scenario",fn:draw},
+    {k:"ghost",label:"Run this one again",fn:()=>setPhase("ready")},
+    {k:"bare",label:"Finish for today",fn:reset}
+  ]);
+}
+
+function renderTally(){
+  el.tally.innerHTML = store.reps
+    ? ("<b>"+store.reps+"</b> reps across <b>"+store.days.length+"</b> day"+(store.days.length===1?"":"s"))
+    : "No reps yet";
+  const p = pool(), unseen = p.filter(i => store.seen.indexOf(i) === -1).length;
+  el.remaining.textContent = unseen + " of " + p.length + " unused";
+}
+
+/* ---------- phases ---------- */
+function setPhase(p){
+  phase = p;
+  document.body.classList.remove("alarm");
+  el.tide.style.height = "0%";
+  el.intro.classList.toggle("hidden", p !== "idle");
+  el.card.classList.toggle("hidden", p === "idle");
+  if(p === "ready"){
+    el.clockwrap.classList.remove("hidden");
+    el.clock.classList.add("prep");
+    el.clock.textContent = mmss(speakLength(SCENARIOS[current]));
+    el.clocklabel.textContent = "stand up before you press start";
+    el.hint.classList.add("hidden");
+    el.logcard.classList.add("hidden");
+    paintShape();
+  }
+  renderControls(); renderTally();
+}
+
+function paintShape(){
+  const sc = SCENARIOS[current], s = STRUCTURES[sc.f];
+  if(store.guide && phase !== "live"){
+    el.shape.classList.remove("hidden");
+    el.shape.innerHTML = "<span>Suggested shape</span> " + s[0];
+  } else el.shape.classList.add("hidden");
+}
+
+function draw(){
+  let p = pool(), unseen = p.filter(i => store.seen.indexOf(i) === -1);
+  if(!unseen.length){ store.seen = store.seen.filter(i => p.indexOf(i) === -1); unseen = p; save(); }
+  current = unseen[Math.floor(Math.random()*unseen.length)];
+  const sc = SCENARIOS[current];
+  el.cat.textContent = CATS[sc.c];
+  el.len.textContent = words(speakLength(sc));
+  el.text.textContent = sc.s;
+  el.hint.innerHTML = "<b>" + STRUCTURES[sc.f][0] + "</b><br>" + sc.h;
+  el.card.classList.remove("enter"); void el.card.offsetWidth; el.card.classList.add("enter");
+  setPhase("ready");
+}
+
+function start(){
+  const prep = parseInt(el.fprep.value,10);
+  if(!prep) return goLive();
+  phase = "prep"; total = prep; endsAt = Date.now() + prep*1000;
+  el.clock.classList.add("prep");
+  el.clocklabel.textContent = "preparing";
+  renderControls(); run();
+}
+function goLive(){
+  phase = "live"; total = speakLength(SCENARIOS[current]); endsAt = Date.now() + total*1000;
+  el.clock.classList.remove("prep");
+  el.clocklabel.textContent = "speaking";
+  paintShape(); beep(660,140); renderControls(); run();
+}
+function run(){ clearInterval(ticker); tick(); ticker = setInterval(tick, 200); }
+function tick(){
+  const left = (endsAt - Date.now())/1000;
+  el.clock.textContent = mmss(Math.max(0,left));
+  if(phase === "live"){
+    el.tide.style.height = Math.min(100, ((total-left)/total)*100) + "%";
+    document.body.classList.toggle("alarm", left <= 10);
+  }
+  if(left <= 0){ clearInterval(ticker); phase === "prep" ? goLive() : finish(); }
+}
+
+function finish(){
+  clearInterval(ticker);
+  beep(392,300); setTimeout(()=>beep(294,420), 180);
+  const today = new Date().toISOString().slice(0,10);
+  if(store.days.indexOf(today) === -1) store.days.push(today);
+  if(store.seen.indexOf(current) === -1) store.seen.push(current);
+  store.reps++;
+  entry = {d:today, c:SCENARIOS[current].c, f:SCENARIOS[current].f, ttp:null, re:null, end:null, note:""};
+  store.log.push(entry);
+  save();
+  el.clock.textContent = "0:00";
+  el.clocklabel.textContent = "time";
+  phase = "done";
+  paintShape();
+  buildLogCard();
+  el.hint.classList.remove("hidden");
+  document.body.classList.remove("alarm");
+  el.tide.style.height = "0%";
+  renderControls(); renderTally();
+}
+function reset(){ clearInterval(ticker); current = null; entry = null; setPhase("idle"); }
+
+/* ---------- the three metrics ---------- */
+const TTP = [[3,"under 5s"],[8,"5 to 10s"],[15,"10 to 20s"],[25,"20 to 30s"],[40,"over 30s"]];
+const RE  = [0,1,2,3,4,5];
+
+function buildLogCard(){
+  el.logcard.classList.remove("hidden");
+  el.logcard.innerHTML = "";
+  const rows = [
+    {label:"Seconds before you said your actual point", opts:TTP.map(t=>[t[0],t[1]]), key:"ttp"},
+    {label:"Sentences you started and abandoned", opts:RE.map(n=>[n, n===5?"5+":String(n)]), key:"re"},
+    {label:"Did the ending land, or did you trail off", opts:[[1,"It landed"],[0,"Trailed off"]], key:"end"}
+  ];
+  rows.forEach(r => {
+    const wrap = document.createElement("div"); wrap.className = "logrow";
+    const lab = document.createElement("div"); lab.className = "loglabel"; lab.textContent = r.label;
+    const chips = document.createElement("div"); chips.className = "chips";
+    r.opts.forEach(o => {
+      const b = document.createElement("button");
+      b.className = "chip"; b.textContent = o[1];
+      b.onclick = () => {
+        entry[r.key] = o[0];
+        [].forEach.call(chips.children, c => c.classList.remove("on"));
+        b.classList.add("on"); save();
+      };
+      chips.appendChild(b);
+    });
+    wrap.appendChild(lab); wrap.appendChild(chips); el.logcard.appendChild(wrap);
+  });
+  const note = document.createElement("input");
+  note.className = "note"; note.type = "text";
+  note.placeholder = "One line: what was worse than last time?";
+  note.oninput = () => { entry.note = note.value; save(); };
+  el.logcard.appendChild(note);
+}
+
+/* ---------- panels ---------- */
+function openPanel(title, html){
+  el.paneltitle.textContent = title;
+  el.panelbody.innerHTML = html;
+  el.panel.classList.remove("hidden");
+}
+function closePanel(){ el.panel.classList.add("hidden"); }
+
+function avg(a){ return a.length ? a.reduce((x,y)=>x+y,0)/a.length : null; }
+function fmt(n, d){ return n === null ? "not enough data" : n.toFixed(d===undefined?1:d); }
+
+function logPanel(){
+  const done = store.log.filter(e => e.ttp !== null);
+  if(!done.length) return openPanel("Your log", "<p class='pnote'>Nothing logged yet. The three questions appear after each rep. They take about ten seconds and they are the whole point of doing this over months rather than weeks.</p>");
+  const full = store.log.filter(e => e.ttp!==null && e.re!==null && e.end!==null);
+  const last = full.slice(-10), prev = full.slice(-20,-10);
+  const stat = (arr, k) => avg(arr.map(e=>e[k]));
+  const delta = (a,b,invert) => {
+    if(a===null||b===null) return "";
+    const diff = a-b, better = invert ? diff>0 : diff<0;
+    if(Math.abs(diff) < 0.001) return "<i>level</i>";
+    return "<i class='" + (better?"up":"down") + "'>" + (better?"better":"worse") + " than the ten before</i>";
+  };
+  let h = "<div class='stats'>";
+  h += "<div><span>Seconds to your point</span><b>"+fmt(stat(last,"ttp"))+"</b>"+delta(stat(last,"ttp"),stat(prev,"ttp"),false)+"</div>";
+  h += "<div><span>Restarts per rep</span><b>"+fmt(stat(last,"re"))+"</b>"+delta(stat(last,"re"),stat(prev,"re"),false)+"</div>";
+  const ep = stat(last,"end");
+  h += "<div><span>Endings that landed</span><b>"+(ep===null?"–":Math.round(ep*100)+"%")+"</b>"+delta(stat(last,"end"),stat(prev,"end"),true)+"</div>";
+  h += "</div>";
+  h += "<p class='pnote'>Averages over your last ten logged reps. Read your notes below in one pass. The line that keeps reappearing is your actual practice project.</p>";
+  h += "<div class='loglist'>";
+  done.slice().reverse().slice(0,30).forEach((e,idx) => {
+    h += "<div class='logitem'><span class='lmeta'>"+e.d+"  "+CATS[e.c]+"</span>"
+      +  "<span class='lnums'>point "+e.ttp+"s, "+(e.re===null?"?":e.re)+" restarts, ending "+(e.end===null?"not noted":(e.end?"landed":"trailed"))+"</span>"
+      +  (e.note ? "<span class='lnote'>"+e.note.replace(/</g,"&lt;")+"</span>" : "") + "</div>";
+  });
+  h += "</div>";
+  h += "<div class='pactions'><button class='ghost' id='exp'>Download log as CSV</button></div>";
+  openPanel("Your log", h);
+  $("exp").onclick = exportCsv;
+}
+
+function exportCsv(){
+  const rows = [["date","category","structure","seconds_to_point","restarts","ending_landed","note"]];
+  store.log.forEach(e => rows.push([e.d,e.c,e.f,e.ttp,e.re,e.end,'"'+(e.note||"").replace(/"/g,'""')+'"']));
+  const blob = new Blob([rows.map(r=>r.join(",")).join("\n")], {type:"text/csv"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "speaking-log.csv"; a.click();
+}
+
+function structuresPanel(){
+  let h = "<div class='slist'>";
+  Object.keys(STRUCTURES).forEach(k => {
+    h += "<div class='sitem'><b>"+STRUCTURES[k][0]+"</b><span>"+STRUCTURES[k][1]+"</span></div>";
+  });
+  h += "</div>";
+  openPanel("The fourteen shapes", h);
+}
+
+/* ---------- footer wiring ---------- */
+(function init(){
+  const all = document.createElement("option");
+  all.value = "all"; all.textContent = "Everything";
+  el.fcat.appendChild(all);
+  Object.keys(CATS).forEach(k => {
+    const o = document.createElement("option"); o.value = k; o.textContent = CATS[k];
+    el.fcat.appendChild(o);
+  });
+  el.fcat.onchange = renderTally;
+  el.flen.onchange = () => { if(phase === "ready") setPhase("ready"); };
+
+  const link = (txt, fn) => {
+    const a = document.createElement("a"); a.textContent = txt; a.onclick = fn;
+    el.foot.appendChild(a); return a;
+  };
+  link("Your log", logPanel);
+  link("Shapes", structuresPanel);
+  const g = link("", () => {
+    store.guide = !store.guide; save(); paintG();
+    if(current !== null && phase !== "live") paintShape();
+  });
+  const paintG = () => g.textContent = store.guide ? "Shape shown" : "Shape hidden";
+  paintG();
+  const s = link("", () => { store.sound = !store.sound; save(); paintS(); });
+  const paintS = () => s.textContent = store.sound ? "Sound on" : "Sound off";
+  paintS();
+  link("Reset", () => {
+    if(confirm("Clear everything, including your log?")){
+      store = {seen:[], reps:0, days:[], sound:store.sound, guide:store.guide, log:[]};
+      save(); renderTally(); closePanel();
+    }
+  });
+  $("panelclose").onclick = closePanel;
+  el.panel.onclick = e => { if(e.target === el.panel) closePanel(); };
+})();
+
+document.addEventListener("keydown", e => {
+  if(e.target.tagName === "SELECT" || e.target.tagName === "INPUT") return;
+  const k = e.key.toLowerCase();
+  if(k === " " || e.code === "Space"){
+    e.preventDefault();
+    const b = el.controls.querySelector(".primary") || el.controls.querySelector("button");
+    if(b) b.click();
+  }
+  else if(k === "h" && phase === "done") el.hint.classList.remove("hidden");
+  else if(k === "n" && phase !== "live") draw();
+  else if(k === "l") logPanel();
+  else if(k === "escape"){ if(!el.panel.classList.contains("hidden")) closePanel(); else reset(); }
+});
+
+setPhase("idle");
+</script>
+</body>
+</html>
